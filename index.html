@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tap Tracker</title>
+<style>
+  :root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--accent:#0a84ff;--bad:#ff453a;--ok:#30d158;--line:#e5e5ea}
+  @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--line:#2c2c2e}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px 16px 48px;max-width:560px;margin-inline:auto}
+  h1{font-size:1.4rem;margin:8px 0 12px}
+  .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
+  .nav{display:flex;align-items:center;justify-content:space-between}
+  .nav button{background:none;border:0;font-size:1.4rem;color:var(--accent);padding:4px 12px}
+  .total{font-size:2.2rem;font-weight:700;text-align:center;margin:6px 0}
+  .muted{color:var(--muted);font-size:.85rem;text-align:center}
+  .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:10px}
+  .bar>div{height:100%;background:var(--ok)}
+  .row{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border:0}
+  .row small{color:var(--muted);display:block}
+  .amt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+  h2{font-size:1rem;margin:0 0 8px}
+  input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:1rem;margin-bottom:8px}
+  .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 14px;font-size:1rem;width:100%}
+  .btn.alt{background:var(--line);color:var(--text);margin-top:8px}
+  .link{background:none;border:0;color:var(--accent);font-size:.9rem;padding:8px 0;width:100%}
+  .del{background:none;border:0;color:var(--bad);font-size:1.1rem;padding:0 4px}
+  .flash{border-radius:10px;padding:10px;margin-bottom:12px;display:none;text-align:center;background:var(--ok);color:#000}
+  .flash.err{background:var(--bad);color:#fff}
+  .hidden{display:none!important}
+  #status{font-size:.75rem;color:var(--muted);text-align:center;margin-top:-6px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<h1>💳 Tap Tracker</h1>
+<div class="flash" id="flash"></div>
+
+<!-- Shown until firebase-config.js is filled in -->
+<div class="card hidden" id="setup">
+  <h2>Setup needed</h2>
+  <p>Open <code>firebase-config.js</code>, paste in your Firebase web app config, and redeploy. See the README, step 1.</p>
+</div>
+
+<!-- Sign in -->
+<div class="card hidden" id="auth">
+  <h2>Sign in</h2>
+  <input id="email" type="email" autocomplete="username" placeholder="Email">
+  <input id="password" type="password" autocomplete="current-password" placeholder="Password (6+ characters)">
+  <button class="btn" id="signIn">Sign in</button>
+  <button class="btn alt" id="signUp">Create account</button>
+  <button class="link" id="reset">Forgot password?</button>
+</div>
+
+<!-- Main app -->
+<div id="app" class="hidden">
+  <div id="status"></div>
+  <div class="card">
+    <div class="nav"><button id="prev" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="next" aria-label="Next month">›</button></div>
+    <div class="total" id="total">$0.00</div>
+    <div class="muted" id="sub"></div>
+    <div class="bar" id="barWrap" style="display:none"><div id="bar"></div></div>
+    <div class="muted" id="budgetNote" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card"><h2>By card</h2><div id="byCard"></div></div>
+  <div class="card"><h2>Top merchants</h2><div id="byMerchant"></div></div>
+  <div class="card"><h2>Transactions</h2><div id="list"></div></div>
+
+  <div class="card">
+    <h2>Add manually</h2>
+    <input id="mAmt" type="number" inputmode="decimal" step="0.01" placeholder="Amount">
+    <input id="mMerchant" placeholder="Merchant">
+    <input id="mCard" placeholder="Card (optional)">
+    <button class="btn" id="addBtn">Add</button>
+  </div>
+
+  <div class="card">
+    <h2>Settings &amp; backup</h2>
+    <input id="budget" type="number" inputmode="decimal" placeholder="Monthly budget (optional)">
+    <button class="btn" id="saveBudget">Save budget</button>
+    <button class="btn alt" id="exportBtn">Export CSV</button>
+    <button class="btn alt" id="importBtn">Import CSV</button>
+    <input type="file" id="importFile" accept=".csv,text/csv" style="display:none">
+    <button class="btn alt" id="signOut">Sign out</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, query, where, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const $ = id => document.getElementById(id);
+const fmt = n => new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(n);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function flash(msg, err){ const f=$('flash'); f.textContent=msg; f.className='flash'+(err?' err':''); f.style.display='block'; clearTimeout(flash.t); flash.t=setTimeout(()=>f.style.display='none',5000); }
+const hash = s => { let h=5381; for (const c of s) h=((h<<5)+h+c.charCodeAt(0))|0; return (h>>>0).toString(36); };
+const keyId = (t,a,m,c) => 't'+Math.floor(t/60000)+'_'+hash(a+'|'+m+'|'+c);   // same tap logged twice = same doc
+function parseAmt(v){ const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isFinite(n) ? Math.abs(n) : NaN; }
+
+// 1) Capture a tap coming from the Shortcut right away, then clean the URL.
+//    It is held in localStorage until we're signed in, so no tap is lost.
+const PEND = 'taptracker.pending';
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (q.has('amt')) {
+    try {
+      const list = JSON.parse(localStorage.getItem(PEND) || '[]');
+      list.push({ amt:q.get('amt'), merchant:q.get('merchant'), card:q.get('card'), date:q.get('date'), ts:Date.now() });
+      localStorage.setItem(PEND, JSON.stringify(list));
+    } catch {}
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+
+// 2) Firebase
+const configured = firebaseConfig && firebaseConfig.apiKey && !String(firebaseConfig.apiKey).startsWith('YOUR_');
+if (!configured) { $('setup').classList.remove('hidden'); throw new Error('Firebase not configured'); }
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+let db;
+try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); }
+catch { const m = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"); db = m.getFirestore(app); }
+
+let uid = null, tx = [], unsub = null;
+let view = new Date(); view.setDate(1); view.setHours(0,0,0,0);
+const txCol = () => collection(db, 'users', uid, 'tx');
+const userDoc = () => doc(db, 'users', uid);
+
+async function addTx({amt, merchant, card, t, id}){
+  const a = parseAmt(amt); if (isNaN(a) || a === 0) return null;
+  const when = isNaN(t) ? Date.now() : t;
+  const rec = { t: when, amt: a, merchant: (merchant||'').trim() || 'Unknown', card: (card||'').trim() || 'Card' };
+  await setDoc(doc(txCol(), id || keyId(when, a, rec.merchant, rec.card)), rec);
+  return rec;
+}
+
+async function flushPending(){
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(PEND) || '[]'); } catch {}
+  if (!list.length) return;
+  let ok = 0, last = null;
+  for (const p of list) {
+    const t = p.date ? new Date(p.date).getTime() : p.ts;
+    try { const r = await addTx({amt:p.amt, merchant:p.merchant, card:p.card, t}); if (r) { ok++; last = r; } } catch (e) { flash('Could not save a tap: ' + e.message, true); return; }
+  }
+  try { localStorage.removeItem(PEND); } catch {}
+  if (last) { flash(ok === 1 ? `Logged ${fmt(last.amt)} at ${last.merchant}` : `Logged ${ok} taps`); view = new Date(last.t); view.setDate(1); view.setHours(0,0,0,0); subscribe(); }
+}
+
+function subscribe(){
+  if (unsub) unsub();
+  if (!uid) return;
+  const start = view.getTime(), end = new Date(view.getFullYear(), view.getMonth()+1, 1).getTime();
+  const q = query(txCol(), where('t','>=',start), where('t','<',end), orderBy('t','desc'));
+  unsub = onSnapshot(q, snap => {
+    tx = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    $('status').textContent = snap.metadata.fromCache && snap.metadata.hasPendingWrites ? 'Offline: will sync when connected' : '☁️ Synced';
+    render();
+  }, e => flash('Sync error: ' + e.message, true));
+}
+
+function group(list, key){ const m = {}; list.forEach(x => m[x[key]] = (m[x[key]]||0) + x.amt); return Object.entries(m).sort((a,b)=>b[1]-a[1]); }
+const rows = (entries, limit) => entries.slice(0, limit||99).map(([k,v]) => `<div class="row"><span>${esc(k)}</span><span class="amt">${fmt(v)}</span></div>`).join('') || '<div class="muted">Nothing yet</div>';
+let budget = 0;
+
+function render(){
+  const total = tx.reduce((s,x)=>s+x.amt,0);
+  $('monthLabel').textContent = view.toLocaleDateString('en-CA',{month:'long',year:'numeric'});
+  $('total').textContent = fmt(total);
+  const now = new Date(), isCur = now.getFullYear()===view.getFullYear() && now.getMonth()===view.getMonth();
+  const days = isCur ? now.getDate() : new Date(view.getFullYear(), view.getMonth()+1, 0).getDate();
+  $('sub').textContent = `${tx.length} taps · avg ${fmt(days ? total/days : 0)}/day`;
+  if (budget > 0) {
+    $('barWrap').style.display = 'block';
+    $('bar').style.width = Math.min(100, total/budget*100) + '%';
+    $('bar').style.background = total > budget ? 'var(--bad)' : 'var(--ok)';
+    $('budgetNote').textContent = total > budget ? `Over budget by ${fmt(total-budget)}` : `${fmt(budget-total)} left of ${fmt(budget)}`;
+  } else { $('barWrap').style.display = 'none'; $('budgetNote').textContent = ''; }
+  $('byCard').innerHTML = rows(group(tx,'card'));
+  $('byMerchant').innerHTML = rows(group(tx,'merchant'), 8);
+  $('list').innerHTML = tx.map(x => `<div class="row"><span>${esc(x.merchant)}<small>${new Date(x.t).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${esc(x.card)}</small></span><span><span class="amt">${fmt(x.amt)}</span> <button class="del" data-id="${esc(x.id)}" aria-label="Delete">✕</button></span></div>`).join('') || '<div class="muted">No transactions this month</div>';
+}
+
+// 3) Auth
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    uid = user.uid;
+    $('auth').classList.add('hidden'); $('app').classList.remove('hidden');
+    try { const s = await getDoc(userDoc()); budget = s.exists() ? (s.data().budget || 0) : 0; $('budget').value = budget || ''; } catch {}
+    subscribe();
+    await flushPending();
+  } else {
+    uid = null; tx = []; if (unsub) { unsub(); unsub = null; }
+    $('app').classList.add('hidden'); $('auth').classList.remove('hidden');
+  }
+});
+const authErr = e => flash((e.code || e.message || 'Error').replace('auth/','').replace(/-/g,' '), true);
+$('signIn').onclick = () => signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value).catch(authErr);
+$('signUp').onclick = () => createUserWithEmailAndPassword(auth, $('email').value.trim(), $('password').value).catch(authErr);
+$('reset').onclick = () => { const e = $('email').value.trim(); if (!e) return flash('Enter your email first', true); sendPasswordResetEmail(auth, e).then(() => flash('Password reset email sent')).catch(authErr); };
+$('signOut').onclick = () => signOut(auth);
+
+// 4) UI actions
+$('prev').onclick = () => { view.setMonth(view.getMonth()-1); subscribe(); };
+$('next').onclick = () => { view.setMonth(view.getMonth()+1); subscribe(); };
+$('list').onclick = e => { const id = e.target.dataset && e.target.dataset.id; if (id && confirm('Delete this transaction?')) deleteDoc(doc(txCol(), id)).catch(err => flash(err.message, true)); };
+$('addBtn').onclick = async () => {
+  const r = await addTx({ amt:$('mAmt').value, merchant:$('mMerchant').value, card:$('mCard').value, t:Date.now(), id:doc(txCol()).id }).catch(e => { flash(e.message, true); return null; });
+  if (r) { $('mAmt').value = $('mMerchant').value = $('mCard').value = ''; } else flash('Enter a valid amount', true);
+};
+$('saveBudget').onclick = async () => {
+  const b = parseFloat($('budget').value) || 0;
+  try { await setDoc(userDoc(), { budget: b }, { merge: true }); budget = b; render(); flash('Budget saved'); } catch (e) { flash(e.message, true); }
+};
+
+// 5) CSV backup (covers all months)
+const csvCell = s => '"' + String(s).replace(/"/g,'""') + '"';
+$('exportBtn').onclick = async () => {
+  try {
+    const snap = await getDocs(query(txCol(), orderBy('t')));
+    const lines = ['date,amount,merchant,card'].concat(snap.docs.map(d => { const x = d.data(); return [new Date(x.t).toISOString(), x.amt.toFixed(2), csvCell(x.merchant), csvCell(x.card)].join(','); }));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type:'text/csv'}));
+    a.download = 'tap-tracker.csv'; a.click();
+  } catch (e) { flash(e.message, true); }
+};
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const lines = (await f.text()).split(/\r?\n/).slice(1).filter(Boolean);
+  const recs = [];
+  for (const l of lines) {
+    const m = l.match(/^([^,]*),([^,]*),"((?:[^"]|"")*)","((?:[^"]|"")*)"$/);
+    if (!m) continue;
+    const a = parseAmt(m[2]), t = new Date(m[1]).getTime();
+    if (isNaN(a) || a === 0 || isNaN(t)) continue;
+    const merchant = m[3].replace(/""/g,'"'), card = m[4].replace(/""/g,'"');
+    recs.push({ id:keyId(t,a,merchant,card), data:{ t, amt:a, merchant, card } });
+  }
+  try {
+    for (let i = 0; i < recs.length; i += 400) {
+      const b = writeBatch(db);
+      recs.slice(i, i+400).forEach(r => b.set(doc(txCol(), r.id), r.data));
+      await b.commit();
+    }
+    flash(`Imported ${recs.length} transactions`);
+  } catch (err) { flash(err.message, true); }
+  e.target.value = '';
+};
+</script>
+</body>
+</html>
