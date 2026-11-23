@@ -3,90 +3,231 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Tap Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--accent:#0a84ff;--bad:#ff453a;--ok:#30d158;--line:#e5e5ea}
-  @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--line:#2c2c2e}}
+  :root{
+    --bg:#F4F5F7; --surface:#FFFFFF; --ink:#12161C; --muted:#6A7280; --line:#E3E6EB;
+    --accent:#3556E8; --bad:#D64545; --ok:#2E9E6B;
+    --font:"Hanken Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0D1014; --surface:#161A20; --ink:#EEF1F5; --muted:#8B93A1; --line:#242A33; --accent:#8397FF; --bad:#FF6B6B; --ok:#4CC38A}
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px 16px 48px;max-width:560px;margin-inline:auto}
-  h1{font-size:1.4rem;margin:8px 0 12px}
-  .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
-  .nav{display:flex;align-items:center;justify-content:space-between}
-  .nav button{background:none;border:0;font-size:1.4rem;color:var(--accent);padding:4px 12px}
-  .total{font-size:2.2rem;font-weight:700;text-align:center;margin:6px 0}
-  .muted{color:var(--muted);font-size:.85rem;text-align:center}
-  .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:10px}
-  .bar>div{height:100%;background:var(--ok)}
-  .row{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
-  .row:last-child{border:0}
-  .row small{color:var(--muted);display:block}
-  .amt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
-  h2{font-size:1rem;margin:0 0 8px}
-  input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:1rem;margin-bottom:8px}
-  .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 14px;font-size:1rem;width:100%}
-  .btn.alt{background:var(--line);color:var(--text);margin-top:8px}
-  .link{background:none;border:0;color:var(--accent);font-size:.9rem;padding:8px 0;width:100%}
-  .del{background:none;border:0;color:var(--bad);font-size:1.1rem;padding:0 4px}
-  .flash{border-radius:10px;padding:10px;margin-bottom:12px;display:none;text-align:center;background:var(--ok);color:#000}
-  .flash.err{background:var(--bad);color:#fff}
-  .hidden{display:none!important}
-  #status{font-size:.75rem;color:var(--muted);text-align:center;margin-top:-6px;margin-bottom:10px}
+  [hidden]{display:none!important}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.45 var(--font);
+    padding:max(20px,env(safe-area-inset-top)) 22px calc(110px + env(safe-area-inset-bottom));
+    max-width:540px;margin-inline:auto;font-variant-numeric:tabular-nums}
+  button{font:inherit;color:inherit;cursor:pointer}
+  h1{font-size:1.9rem;letter-spacing:-.03em;margin:28px 0 6px;font-weight:700}
+  h2{font-size:1rem;font-weight:600;margin:0;letter-spacing:-.01em}
+  p{margin:0}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* top bar */
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .period{display:flex;align-items:center;gap:2px;margin-left:-8px}
+  .plabel{font-weight:500;font-size:.95rem;min-width:9.5em;text-align:center}
+  .icon{background:none;border:0;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+  .icon:active{background:var(--line)}
+  .status{font-size:.78rem;color:var(--muted)}
+
+  /* hero */
+  .hero{padding:18px 0 34px}
+  .total{font-size:clamp(3.2rem,15vw,4.4rem);font-weight:600;letter-spacing:-.045em;line-height:1}
+  .total small{font-size:.42em;letter-spacing:-.02em;color:var(--muted);font-weight:500;margin-left:2px}
+  .sub{color:var(--muted);margin-top:10px}
+  .budget{margin-top:22px}
+  .track{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+  .track i{display:block;height:100%;background:var(--ink);border-radius:4px;transition:width .5s ease}
+  .track i.over{background:var(--bad)}
+  .budget p{font-size:.85rem;color:var(--muted);margin-top:8px}
+
+  /* sections */
+  section{margin-bottom:34px}
+  .head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+  .textbtn{background:none;border:0;color:var(--accent);padding:4px 0;font-size:.9rem;font-weight:500}
+
+  .stack{display:flex;gap:3px;height:10px;margin-bottom:8px;transform-origin:left;animation:grow .8s cubic-bezier(.2,.7,.2,1)}
+  .stack i{display:block;border-radius:5px;min-width:6px}
+  .stack.empty i{background:var(--line);flex:1}
+  @keyframes grow{from{transform:scaleX(0)}}
+
+  .crow{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:13px 0;text-align:left}
+  .crow:last-child{border-bottom:0}
+  .crow[aria-pressed="true"] .cname{font-weight:600}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .cname{flex:1}
+  .pct{color:var(--muted);font-size:.85rem;width:3em;text-align:right}
+  .amt{font-weight:500;min-width:5.5em;text-align:right}
+
+  .day{font-size:.82rem;color:var(--muted);margin:22px 0 4px;font-weight:500}
+  .day:first-child{margin-top:0}
+  .row{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:13px 0;text-align:left}
+  .row .who{flex:1;min-width:0}
+  .row .who b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .who span{display:block;font-size:.82rem;color:var(--muted)}
+  .empty-note{color:var(--muted);padding:6px 0}
+
+  /* settings */
+  details{border-top:1px solid var(--line);padding-top:6px}
+  summary{cursor:pointer;padding:14px 0;font-weight:600;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";float:right;color:var(--muted);font-weight:400}
+  details[open] summary::after{content:"–"}
+  .group{margin:6px 0 26px}
+  .group h3{font-size:.95rem;margin:0 0 4px;font-weight:600}
+  .group .hint{color:var(--muted);font-size:.85rem;margin-bottom:12px}
+  .rule{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .rule span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis}
+
+  /* forms */
+  label{display:block;font-size:.85rem;color:var(--muted);margin:0 0 6px;font-weight:500}
+  input,select{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;margin-bottom:14px;appearance:none;-webkit-appearance:none}
+  select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%238B93A1' stroke-width='2'%3E%3Cpath d='m1 1.5 5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+  .check{display:flex;align-items:center;gap:10px;margin:-4px 0 16px;color:var(--ink);font-size:.92rem}
+  .check input{width:20px;height:20px;margin:0;padding:0;appearance:auto;-webkit-appearance:checkbox}
+  .btn{background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:14px 22px;font-weight:600;width:100%}
+  .btn.ghost{background:none;color:var(--ink);border:1px solid var(--line);margin-top:10px}
+  .btn.danger{background:none;color:var(--bad);margin-top:6px}
+  .btn.small{width:auto;padding:10px 18px;font-size:.92rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  .fab{position:fixed;right:max(22px,calc(50% - 248px));bottom:calc(22px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;box-shadow:0 6px 22px rgba(0,0,0,.22)}
+  .fab:active{transform:scale(.96)}
+
+  /* sheet */
+  dialog{border:0;padding:22px 22px calc(22px + env(safe-area-inset-bottom));border-radius:22px 22px 0 0;margin:auto auto 0;width:100%;max-width:560px;background:var(--bg);color:var(--ink);animation:rise .28s cubic-bezier(.2,.8,.2,1)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  dialog h2{font-size:1.2rem;margin-bottom:18px;letter-spacing:-.02em}
+  @keyframes rise{from{transform:translateY(40px);opacity:0}}
+
+  /* messages */
+  .toast{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:.92rem;font-weight:500;z-index:20;max-width:92vw;text-align:center}
+  .toast.err{background:var(--bad);color:#fff}
+  .lead{color:var(--muted);margin-bottom:22px}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<h1>💳 Tap Tracker</h1>
-<div class="flash" id="flash"></div>
+<div class="toast" id="flash" hidden></div>
 
-<!-- Shown until firebase-config.js is filled in -->
-<div class="card hidden" id="setup">
-  <h2>Setup needed</h2>
-  <p>Open <code>firebase-config.js</code>, paste in your Firebase web app config, and redeploy. See the README, step 1.</p>
-</div>
+<main>
+  <!-- Shown until firebase-config.js is filled in -->
+  <section id="setup" hidden>
+    <h1>Almost there</h1>
+    <p class="lead">Open <code>firebase-config.js</code>, paste in your Firebase web app settings, then redeploy. The README, step 1, shows where to find them.</p>
+  </section>
 
-<!-- Sign in -->
-<div class="card hidden" id="auth">
-  <h2>Sign in</h2>
-  <input id="email" type="email" autocomplete="username" placeholder="Email">
-  <input id="password" type="password" autocomplete="current-password" placeholder="Password (6+ characters)">
-  <button class="btn" id="signIn">Sign in</button>
-  <button class="btn alt" id="signUp">Create account</button>
-  <button class="link" id="reset">Forgot password?</button>
-</div>
+  <!-- Sign in -->
+  <section id="auth" hidden>
+    <h1>Tap Tracker</h1>
+    <p class="lead">Sign in to see what you've spent.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" inputmode="email">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button class="btn" id="signIn">Sign in</button>
+    <button class="btn ghost" id="signUp">Create account</button>
+    <button class="textbtn" id="reset" style="margin-top:12px">Reset password</button>
+  </section>
 
-<!-- Main app -->
-<div id="app" class="hidden">
-  <div id="status"></div>
-  <div class="card">
-    <div class="nav"><button id="prev" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="next" aria-label="Next month">›</button></div>
-    <div class="total" id="total">$0.00</div>
-    <div class="muted" id="sub"></div>
-    <div class="bar" id="barWrap" style="display:none"><div id="bar"></div></div>
-    <div class="muted" id="budgetNote" style="margin-top:6px"></div>
+  <!-- App -->
+  <div id="app" hidden>
+    <header class="top">
+      <div class="period">
+        <button class="icon" id="prev" aria-label="Previous period"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+        <div class="plabel" id="monthLabel"></div>
+        <button class="icon" id="next" aria-label="Next period"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
+      </div>
+      <div class="status" id="status"></div>
+    </header>
+
+    <section class="hero">
+      <div class="total" id="total"></div>
+      <p class="sub" id="sub"></p>
+      <div class="budget" id="budgetWrap" hidden>
+        <div class="track"><i id="bar"></i></div>
+        <p id="budgetNote"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="head"><h2>Where it went</h2></div>
+      <div class="stack" id="stack"></div>
+      <div id="cats"></div>
+    </section>
+
+    <section>
+      <div class="head"><h2 id="actTitle">Activity</h2><button class="textbtn" id="clearFilter" hidden>Show all</button></div>
+      <div id="list"></div>
+    </section>
+
+    <details>
+      <summary>Settings</summary>
+
+      <div class="group">
+        <h3>Period and budget</h3>
+        <p class="hint">A period runs from your start day to the day before it in the next month.</p>
+        <div class="grid2">
+          <div><label for="cycleDay">Starts on day</label><input id="cycleDay" type="number" inputmode="numeric" min="1" max="28" placeholder="23"></div>
+          <div><label for="budget">Budget</label><input id="budget" type="number" inputmode="decimal" placeholder="Optional"></div>
+        </div>
+        <button class="btn small" id="saveBudget">Save</button>
+      </div>
+
+      <div class="group">
+        <h3>Category rules</h3>
+        <p class="hint">Merchants are sorted automatically. Add a rule to sort one your way: any merchant containing the word goes in that category.</p>
+        <div id="rules"></div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label for="ruleWord">Merchant contains</label><input id="ruleWord" placeholder="e.g. lawtons"></div>
+          <div><label for="ruleCat">Category</label><select id="ruleCat"></select></div>
+        </div>
+        <button class="btn small" id="addRule">Add rule</button>
+      </div>
+
+      <div class="group">
+        <h3>Backup</h3>
+        <p class="hint">Export downloads every purchase as a CSV. Import adds purchases from one without duplicating.</p>
+        <div class="grid2">
+          <button class="btn ghost" id="exportBtn" style="margin:0">Export CSV</button>
+          <button class="btn ghost" id="importBtn" style="margin:0">Import CSV</button>
+        </div>
+        <input type="file" id="importFile" accept=".csv,text/csv" hidden>
+      </div>
+
+      <button class="btn ghost" id="signOut">Sign out</button>
+    </details>
   </div>
+</main>
 
-  <div class="card"><h2>By card</h2><div id="byCard"></div></div>
-  <div class="card"><h2>Top merchants</h2><div id="byMerchant"></div></div>
-  <div class="card"><h2>Transactions</h2><div id="list"></div></div>
+<button class="fab" id="fab" aria-label="Add a purchase" hidden>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
 
-  <div class="card">
-    <h2>Add manually</h2>
-    <input id="mAmt" type="number" inputmode="decimal" step="0.01" placeholder="Amount">
-    <input id="mMerchant" placeholder="Merchant">
-    <input id="mCard" placeholder="Card (optional)">
-    <button class="btn" id="addBtn">Add</button>
-  </div>
-
-  <div class="card">
-    <h2>Settings &amp; backup</h2>
-    <input id="budget" type="number" inputmode="decimal" placeholder="Budget per period (optional)">
-    <input id="cycleDay" type="number" inputmode="numeric" min="1" max="28" placeholder="Period starts on day (1-28), e.g. 23">
-    <button class="btn" id="saveBudget">Save settings</button>
-    <button class="btn alt" id="exportBtn">Export CSV</button>
-    <button class="btn alt" id="importBtn">Import CSV</button>
-    <input type="file" id="importFile" accept=".csv,text/csv" style="display:none">
-    <button class="btn alt" id="signOut">Sign out</button>
-  </div>
-</div>
+<dialog id="sheet">
+  <form id="sheetForm" method="dialog">
+    <h2 id="sheetTitle">Add a purchase</h2>
+    <label for="fAmt">Amount</label>
+    <input id="fAmt" type="number" inputmode="decimal" step="0.01" required>
+    <label for="fMerchant">Merchant</label>
+    <input id="fMerchant" autocomplete="off">
+    <label for="fCard">Card</label>
+    <input id="fCard" autocomplete="off" placeholder="Optional">
+    <label for="fCat">Category</label>
+    <select id="fCat"></select>
+    <label class="check" id="rememberRow" hidden><input type="checkbox" id="fRemember"><span id="rememberText">Always file this merchant here</span></label>
+    <button class="btn" type="submit" id="saveBtn">Save</button>
+    <button class="btn danger" type="button" id="delBtn" hidden>Delete purchase</button>
+    <button class="btn ghost" type="button" id="cancelBtn">Cancel</button>
+  </form>
+</dialog>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
@@ -97,13 +238,39 @@ import { firebaseConfig } from "./firebase-config.js";
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(n);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function flash(msg, err){ const f=$('flash'); f.textContent=msg; f.className='flash'+(err?' err':''); f.style.display='block'; clearTimeout(flash.t); flash.t=setTimeout(()=>f.style.display='none',5000); }
+function flash(msg, err){ const f=$('flash'); f.textContent=msg; f.className='toast'+(err?' err':''); f.hidden=false; clearTimeout(flash.t); flash.t=setTimeout(()=>f.hidden=true,4500); }
 const hash = s => { let h=5381; for (const c of s) h=((h<<5)+h+c.charCodeAt(0))|0; return (h>>>0).toString(36); };
 const keyId = (t,a,m,c) => 't'+Math.floor(t/60000)+'_'+hash(a+'|'+m+'|'+c);   // same tap logged twice = same doc
 function parseAmt(v){ const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isFinite(n) ? Math.abs(n) : NaN; }
 
-// 1) Capture a tap coming from the Shortcut right away, then clean the URL.
-//    It is held in localStorage until we're signed in, so no tap is lost.
+/* ---------- Categories ---------- */
+const CATS = [
+  ['Groceries','#3E9B6B'], ['Restaurants','#E58A3C'], ['Gas','#C65B7C'], ['Shopping','#7A6FD6'],
+  ['Bills','#4A86C5'], ['Transport','#35A7A0'], ['Health','#D4A72C'], ['Entertainment','#B05FC4'], ['Other','#8A93A0']
+];
+const CAT_COLOR = Object.fromEntries(CATS);
+// Order matters: the first matching rule wins, so specific names come before general ones.
+const DEFAULT_RULES = [
+  ['costco gas','Gas'],['costco wholesale gas','Gas'],['canadian tire gas','Gas'],['esso','Gas'],['petro','Gas'],['shell','Gas'],['irving','Gas'],['ultramar','Gas'],['husky','Gas'],['circle k','Gas'],['mobil','Gas'],['gas bar','Gas'],['fuel','Gas'],['sunoco','Gas'],['pioneer','Gas'],
+  ['uber eats','Restaurants'],['ubereats','Restaurants'],['doordash','Restaurants'],['skipthedishes','Restaurants'],['skip the dishes','Restaurants'],['tim hortons','Restaurants'],['mcdonald','Restaurants'],['starbucks','Restaurants'],['subway','Restaurants'],['a&w','Restaurants'],['wendy','Restaurants'],['burger king','Restaurants'],['pizza','Restaurants'],['kfc','Restaurants'],['harvey','Restaurants'],['dairy queen','Restaurants'],['domino','Restaurants'],['popeyes','Restaurants'],['taco bell','Restaurants'],['restaurant','Restaurants'],['cafe','Restaurants'],['coffee','Restaurants'],['sushi','Restaurants'],['grill','Restaurants'],['kitchen','Restaurants'],['bakery','Restaurants'],['pub','Restaurants'],
+  ['costco','Groceries'],['sobeys','Groceries'],['loblaws','Groceries'],['superstore','Groceries'],['no frills','Groceries'],['safeway','Groceries'],['metro','Groceries'],['freshco','Groceries'],['save-on','Groceries'],['foodland','Groceries'],['dominion','Groceries'],['grocery','Groceries'],['market','Groceries'],['supermarket','Groceries'],
+  ['amazon','Shopping'],['walmart','Shopping'],['canadian tire','Shopping'],['best buy','Shopping'],['winners','Shopping'],['marshalls','Shopping'],['dollarama','Shopping'],['ikea','Shopping'],['home depot','Shopping'],['lowe','Shopping'],['staples','Shopping'],['apple.com','Shopping'],['h&m','Shopping'],['zara','Shopping'],['old navy','Shopping'],['shein','Shopping'],['etsy','Shopping'],['ebay','Shopping'],['sport chek','Shopping'],['michaels','Shopping'],['indigo','Shopping'],
+  ['rogers','Bills'],['bell mobility','Bills'],['bell canada','Bills'],['bell aliant','Bills'],['telus','Bills'],['eastlink','Bills'],['fido','Bills'],['koodo','Bills'],['virgin plus','Bills'],['freedom mobile','Bills'],['hydro','Bills'],['newfoundland power','Bills'],['insurance','Bills'],['cra','Bills'],['tax','Bills'],['rent','Bills'],['mortgage','Bills'],['utilit','Bills'],['internet','Bills'],
+  ['air canada','Transport'],['westjet','Transport'],['porter','Transport'],['marine atlantic','Transport'],['via rail','Transport'],['uber','Transport'],['lyft','Transport'],['taxi','Transport'],['parking','Transport'],['transit','Transport'],['ferry','Transport'],['car wash','Transport'],['jiffy','Transport'],['midas','Transport'],['mr. lube','Transport'],['kal tire','Transport'],['autozone','Transport'],['napa','Transport'],
+  ['shoppers drug','Health'],['shoppers','Health'],['lawtons','Health'],['pharmasave','Health'],['pharmacy','Health'],['drug mart','Health'],['jean coutu','Health'],['dental','Health'],['dentist','Health'],['clinic','Health'],['optical','Health'],['physio','Health'],['medical','Health'],
+  ['netflix','Entertainment'],['spotify','Entertainment'],['disney','Entertainment'],['cineplex','Entertainment'],['cinema','Entertainment'],['steam','Entertainment'],['playstation','Entertainment'],['xbox','Entertainment'],['nintendo','Entertainment'],['apple music','Entertainment'],['youtube','Entertainment'],['crave','Entertainment'],['prime video','Entertainment'],['ticketmaster','Entertainment'],['twitch','Entertainment'],['audible','Entertainment'],['theatre','Entertainment'],['movie','Entertainment']
+];
+let userRules = [];   // [{k: 'keyword', c: 'Category'}] saved in your account, checked before the defaults
+const hit = (m, k) => k.length <= 5 ? new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '([^a-z0-9]|$)').test(m) : m.includes(k);
+function autoCat(merchant){
+  const m = String(merchant).toLowerCase();
+  for (const r of userRules) if (hit(m, r.k)) return r.c;
+  for (const [k, c] of DEFAULT_RULES) if (hit(m, k)) return c;
+  return 'Other';
+}
+const catOf = x => x.cat || autoCat(x.merchant);
+
+/* ---------- Capture a tap from the Shortcut, then clean the URL ---------- */
 const PEND = 'taptracker.pending';
 (() => {
   const q = new URLSearchParams(location.search);
@@ -117,9 +284,9 @@ const PEND = 'taptracker.pending';
   }
 })();
 
-// 2) Firebase
+/* ---------- Firebase ---------- */
 const configured = firebaseConfig && firebaseConfig.apiKey && !String(firebaseConfig.apiKey).startsWith('YOUR_');
-if (!configured) { $('setup').classList.remove('hidden'); throw new Error('Firebase not configured'); }
+if (!configured) { $('setup').hidden = false; throw new Error('Firebase not configured'); }
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -127,21 +294,23 @@ let db;
 try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); }
 catch { const m = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"); db = m.getFirestore(app); }
 
-let uid = null, tx = [], unsub = null;
-// A "month" runs from cycleDay of one month up to the day before cycleDay of the next (default: 23rd to 22nd).
+let uid = null, tx = [], unsub = null, budget = 0, filterCat = null, editing = null;
+
+// A "month" runs from cycleDay of one month to the day before cycleDay of the next (default 23rd to 22nd).
 let cycleDay = 23;
 const lastDayOf = (y, m) => new Date(y, m + 1, 0).getDate();
 const cycleStart = (y, m) => new Date(y, m, Math.min(cycleDay, lastDayOf(y, m)));
 const anchorFor = d => { let m = d.getMonth(); if (d < cycleStart(d.getFullYear(), m)) m--; return new Date(d.getFullYear(), m, 1); };
 const periodRange = () => [cycleStart(view.getFullYear(), view.getMonth()), cycleStart(view.getFullYear(), view.getMonth() + 1)];
 let view = anchorFor(new Date());
+
 const txCol = () => collection(db, 'users', uid, 'tx');
 const userDoc = () => doc(db, 'users', uid);
 
-async function addTx({amt, merchant, card, t, id}){
+async function addTx({amt, merchant, card, t, id, cat}){
   const a = parseAmt(amt); if (isNaN(a) || a === 0) return null;
   const when = isNaN(t) ? Date.now() : t;
-  const rec = { t: when, amt: a, merchant: (merchant||'').trim() || 'Unknown', card: (card||'').trim() || 'Card' };
+  const rec = { t: when, amt: a, merchant: (merchant||'').trim() || 'Unknown', card: (card||'').trim() || 'Card', cat: cat || '' };
   await setDoc(doc(txCol(), id || keyId(when, a, rec.merchant, rec.card)), rec);
   return rec;
 }
@@ -156,7 +325,7 @@ async function flushPending(){
     try { const r = await addTx({amt:p.amt, merchant:p.merchant, card:p.card, t}); if (r) { ok++; last = r; } } catch (e) { flash('Could not save a tap: ' + e.message, true); return; }
   }
   try { localStorage.removeItem(PEND); } catch {}
-  if (last) { flash(ok === 1 ? `Logged ${fmt(last.amt)} at ${last.merchant}` : `Logged ${ok} taps`); view = anchorFor(new Date(last.t)); subscribe(); }
+  if (last) { flash(ok === 1 ? `Saved ${fmt(last.amt)} at ${last.merchant}` : `Saved ${ok} taps`); view = anchorFor(new Date(last.t)); subscribe(); }
 }
 
 function subscribe(){
@@ -167,82 +336,182 @@ function subscribe(){
   const q = query(txCol(), where('t','>=',start), where('t','<',end), orderBy('t','desc'));
   unsub = onSnapshot(q, snap => {
     tx = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-    $('status').textContent = snap.metadata.fromCache && snap.metadata.hasPendingWrites ? 'Offline: will sync when connected' : '☁️ Synced';
+    $('status').textContent = snap.metadata.fromCache && snap.metadata.hasPendingWrites ? 'Offline, will sync' : 'Synced';
     render();
-  }, e => flash('Sync error: ' + e.message, true));
+  }, e => flash('Sync problem: ' + e.message, true));
 }
 
-function group(list, key){ const m = {}; list.forEach(x => m[x[key]] = (m[x[key]]||0) + x.amt); return Object.entries(m).sort((a,b)=>b[1]-a[1]); }
-const rows = (entries, limit) => entries.slice(0, limit||99).map(([k,v]) => `<div class="row"><span>${esc(k)}</span><span class="amt">${fmt(v)}</span></div>`).join('') || '<div class="muted">Nothing yet</div>';
-let budget = 0;
+/* ---------- Render ---------- */
+function dayLabel(t){
+  const d = new Date(t), n = new Date(), y = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1);
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  return same(d, n) ? 'Today' : same(d, y) ? 'Yesterday' : d.toLocaleDateString('en-CA', {weekday:'short', month:'short', day:'numeric'});
+}
 
 function render(){
   const total = tx.reduce((s,x)=>s+x.amt,0);
   const [ps, pe] = periodRange();
   const lastDay = new Date(pe.getFullYear(), pe.getMonth(), pe.getDate() - 1);
   $('monthLabel').textContent = ps.toLocaleDateString('en-CA',{month:'short',day:'numeric'}) + ' – ' + lastDay.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});
-  $('total').textContent = fmt(total);
+
+  const m = fmt(total).match(/^(.*?)(\.\d+)?$/);
+  $('total').innerHTML = esc(m[1]) + (m[2] ? `<small>${esc(m[2])}</small>` : '');
   const now = new Date(), isCur = now >= ps && now < pe;
   const days = isCur ? Math.floor((now - ps) / 86400000) + 1 : Math.round((pe - ps) / 86400000);
-  $('sub').textContent = `${tx.length} taps · avg ${fmt(days ? total/days : 0)}/day`;
+  $('sub').textContent = tx.length ? `${tx.length} ${tx.length === 1 ? 'purchase' : 'purchases'}, about ${fmt(total/days)} a day` : (isCur ? 'Nothing spent yet this period' : 'Nothing spent in this period');
+
   if (budget > 0) {
-    $('barWrap').style.display = 'block';
+    $('budgetWrap').hidden = false;
     $('bar').style.width = Math.min(100, total/budget*100) + '%';
-    $('bar').style.background = total > budget ? 'var(--bad)' : 'var(--ok)';
-    $('budgetNote').textContent = total > budget ? `Over budget by ${fmt(total-budget)}` : `${fmt(budget-total)} left of ${fmt(budget)}`;
-  } else { $('barWrap').style.display = 'none'; $('budgetNote').textContent = ''; }
-  $('byCard').innerHTML = rows(group(tx,'card'));
-  $('byMerchant').innerHTML = rows(group(tx,'merchant'), 8);
-  $('list').innerHTML = tx.map(x => `<div class="row"><span>${esc(x.merchant)}<small>${new Date(x.t).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${esc(x.card)}</small></span><span><span class="amt">${fmt(x.amt)}</span> <button class="del" data-id="${esc(x.id)}" aria-label="Delete">✕</button></span></div>`).join('') || '<div class="muted">No transactions in this period</div>';
+    $('bar').className = total > budget ? 'over' : '';
+    $('budgetNote').textContent = total > budget ? `${fmt(total-budget)} over your ${fmt(budget)} budget` : `${fmt(budget-total)} left of ${fmt(budget)}`;
+  } else $('budgetWrap').hidden = true;
+
+  // categories
+  const byCat = {};
+  tx.forEach(x => { const c = catOf(x); byCat[c] = (byCat[c]||0) + x.amt; });
+  const cats = Object.entries(byCat).sort((a,b) => b[1]-a[1]);
+  if (filterCat && !byCat[filterCat]) filterCat = null;
+  $('stack').className = 'stack' + (cats.length ? '' : ' empty');
+  $('stack').innerHTML = cats.length ? cats.map(([c,v]) => `<i style="flex:${v};background:${CAT_COLOR[c] || CAT_COLOR.Other}" title="${esc(c)}"></i>`).join('') : '<i></i>';
+  $('cats').innerHTML = cats.map(([c,v]) => `<button class="crow" data-cat="${esc(c)}" aria-pressed="${filterCat === c}"><span class="dot" style="background:${CAT_COLOR[c] || CAT_COLOR.Other}"></span><span class="cname">${esc(c)}</span><span class="pct">${Math.round(v/total*100)}%</span><span class="amt">${fmt(v)}</span></button>`).join('')
+    || '<p class="empty-note">Categories show up here once you have purchases.</p>';
+
+  // activity
+  $('actTitle').textContent = filterCat ? `Activity: ${filterCat}` : 'Activity';
+  $('clearFilter').hidden = !filterCat;
+  const list = filterCat ? tx.filter(x => catOf(x) === filterCat) : tx;
+  let html = '', lastLabel = '';
+  list.forEach(x => {
+    const lab = dayLabel(x.t);
+    if (lab !== lastLabel) { html += `<div class="day">${esc(lab)}</div>`; lastLabel = lab; }
+    const c = catOf(x);
+    html += `<button class="row" data-id="${esc(x.id)}"><span class="dot" style="background:${CAT_COLOR[c] || CAT_COLOR.Other}"></span><span class="who"><b>${esc(x.merchant)}</b><span>${esc(c)}, ${esc(x.card)}</span></span><span class="amt">${fmt(x.amt)}</span></button>`;
+  });
+  $('list').innerHTML = html || '<p class="empty-note">No purchases yet. Tap to pay with a watched card, or use the + button to add one.</p>';
 }
 
-// 3) Auth
+function renderRules(){
+  $('rules').innerHTML = userRules.map((r,i) => `<div class="rule"><span>${esc(r.k)}</span><span class="dot" style="background:${CAT_COLOR[r.c] || CAT_COLOR.Other}"></span><span>${esc(r.c)}</span><button class="textbtn" data-i="${i}" aria-label="Remove rule for ${esc(r.k)}">Remove</button></div>`).join('')
+    || '<p class="empty-note">No rules yet.</p>';
+}
+
+/* ---------- Auth ---------- */
+const optionsFor = (withAuto, autoText) => (withAuto ? `<option value="">${esc(autoText || 'Auto')}</option>` : '') + CATS.map(([c]) => `<option value="${c}">${c}</option>`).join('');
+$('ruleCat').innerHTML = optionsFor(false);
+$('fCat').innerHTML = optionsFor(true);
+
 onAuthStateChanged(auth, async user => {
   if (user) {
     uid = user.uid;
-    $('auth').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('auth').hidden = true; $('app').hidden = false; $('fab').hidden = false;
     try {
       const s = await getDoc(userDoc());
-      budget = s.exists() ? (s.data().budget || 0) : 0; $('budget').value = budget || '';
-      cycleDay = s.exists() && s.data().cycleDay ? s.data().cycleDay : 23; $('cycleDay').value = cycleDay;
+      const d = s.exists() ? s.data() : {};
+      budget = d.budget || 0; $('budget').value = budget || '';
+      cycleDay = d.cycleDay || 23; $('cycleDay').value = cycleDay;
+      userRules = Array.isArray(d.rules) ? d.rules : [];
       view = anchorFor(new Date());
     } catch {}
+    renderRules();
     subscribe();
     await flushPending();
   } else {
     uid = null; tx = []; if (unsub) { unsub(); unsub = null; }
-    $('app').classList.add('hidden'); $('auth').classList.remove('hidden');
+    $('app').hidden = true; $('fab').hidden = true; $('auth').hidden = false;
   }
 });
-const authErr = e => flash((e.code || e.message || 'Error').replace('auth/','').replace(/-/g,' '), true);
+const authErr = e => flash((e.code || e.message || 'Something went wrong').replace('auth/','').replace(/-/g,' '), true);
 $('signIn').onclick = () => signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value).catch(authErr);
 $('signUp').onclick = () => createUserWithEmailAndPassword(auth, $('email').value.trim(), $('password').value).catch(authErr);
 $('reset').onclick = () => { const e = $('email').value.trim(); if (!e) return flash('Enter your email first', true); sendPasswordResetEmail(auth, e).then(() => flash('Password reset email sent')).catch(authErr); };
 $('signOut').onclick = () => signOut(auth);
 
-// 4) UI actions
+/* ---------- Navigation, filter ---------- */
 $('prev').onclick = () => { view = new Date(view.getFullYear(), view.getMonth()-1, 1); subscribe(); };
 $('next').onclick = () => { view = new Date(view.getFullYear(), view.getMonth()+1, 1); subscribe(); };
-$('list').onclick = e => { const id = e.target.dataset && e.target.dataset.id; if (id && confirm('Delete this transaction?')) deleteDoc(doc(txCol(), id)).catch(err => flash(err.message, true)); };
-$('addBtn').onclick = async () => {
-  const r = await addTx({ amt:$('mAmt').value, merchant:$('mMerchant').value, card:$('mCard').value, t:Date.now(), id:doc(txCol()).id }).catch(e => { flash(e.message, true); return null; });
-  if (r) { $('mAmt').value = $('mMerchant').value = $('mCard').value = ''; } else flash('Enter a valid amount', true);
+$('cats').onclick = e => { const b = e.target.closest('[data-cat]'); if (!b) return; filterCat = filterCat === b.dataset.cat ? null : b.dataset.cat; render(); };
+$('clearFilter').onclick = () => { filterCat = null; render(); };
+
+/* ---------- Add / edit sheet ---------- */
+const sheet = $('sheet');
+function refreshAutoLabel(){
+  const sel = $('fCat'), cur = sel.value;
+  sel.options[0].textContent = $('fMerchant').value.trim() ? `Auto (${autoCat($('fMerchant').value)})` : 'Auto';
+  sel.value = cur;
+  $('rememberRow').hidden = !(sel.value && $('fMerchant').value.trim());
+  $('rememberText').textContent = `Always file ${$('fMerchant').value.trim() || 'this merchant'} under ${sel.value || 'this category'}`;
+}
+function openSheet(x){
+  editing = x || null;
+  $('sheetTitle').textContent = x ? 'Edit purchase' : 'Add a purchase';
+  $('fAmt').value = x ? x.amt.toFixed(2) : '';
+  $('fMerchant').value = x ? x.merchant : '';
+  $('fCard').value = x ? x.card : '';
+  $('fCat').value = x ? (x.cat || '') : '';
+  $('fRemember').checked = false;
+  $('delBtn').hidden = !x;
+  refreshAutoLabel();
+  sheet.showModal();
+}
+$('fab').onclick = () => openSheet(null);
+$('list').onclick = e => { const b = e.target.closest('[data-id]'); if (!b) return; const x = tx.find(t => t.id === b.dataset.id); if (x) openSheet(x); };
+$('fMerchant').oninput = refreshAutoLabel;
+$('fCat').onchange = refreshAutoLabel;
+$('cancelBtn').onclick = () => sheet.close();
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); });
+
+$('sheetForm').onsubmit = async e => {
+  e.preventDefault();
+  const amt = parseAmt($('fAmt').value);
+  if (isNaN(amt) || amt === 0) return flash('Enter an amount above zero', true);
+  const merchant = $('fMerchant').value.trim() || 'Unknown';
+  const card = $('fCard').value.trim() || 'Card';
+  let cat = $('fCat').value;
+  try {
+    if (cat && $('fRemember').checked) {
+      const k = merchant.toLowerCase();
+      userRules = [{k, c:cat}].concat(userRules.filter(r => r.k !== k));
+      await setDoc(userDoc(), { rules: userRules }, { merge: true });
+      renderRules(); cat = '';   // the rule now does the sorting, for every purchase from this merchant
+    }
+    if (editing) await setDoc(doc(txCol(), editing.id), { t: editing.t, amt, merchant, card, cat });
+    else await addTx({ amt, merchant, card, t: Date.now(), id: doc(txCol()).id, cat });
+    sheet.close(); flash(editing ? 'Saved' : 'Added');
+  } catch (err) { flash(err.message, true); }
 };
+$('delBtn').onclick = async () => {
+  if (!editing || !confirm(`Delete ${editing.merchant}, ${fmt(editing.amt)}?`)) return;
+  try { await deleteDoc(doc(txCol(), editing.id)); sheet.close(); flash('Deleted'); } catch (err) { flash(err.message, true); }
+};
+
+/* ---------- Settings ---------- */
 $('saveBudget').onclick = async () => {
   const b = parseFloat($('budget').value) || 0;
   const c = Math.min(28, Math.max(1, parseInt($('cycleDay').value, 10) || 23));
   try {
     await setDoc(userDoc(), { budget: b, cycleDay: c }, { merge: true });
-    budget = b; cycleDay = c; $('cycleDay').value = c; view = anchorFor(new Date()); subscribe(); flash('Settings saved');
+    budget = b; cycleDay = c; $('cycleDay').value = c; view = anchorFor(new Date()); subscribe(); flash('Saved');
   } catch (e) { flash(e.message, true); }
 };
+$('addRule').onclick = async () => {
+  const k = $('ruleWord').value.trim().toLowerCase();
+  if (!k) return flash('Type part of a merchant name first', true);
+  userRules = [{k, c:$('ruleCat').value}].concat(userRules.filter(r => r.k !== k));
+  try { await setDoc(userDoc(), { rules: userRules }, { merge: true }); $('ruleWord').value = ''; renderRules(); render(); flash('Rule added'); } catch (e) { flash(e.message, true); }
+};
+$('rules').onclick = async e => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  userRules = userRules.filter((_, i) => i !== +b.dataset.i);
+  try { await setDoc(userDoc(), { rules: userRules }, { merge: true }); renderRules(); render(); } catch (err) { flash(err.message, true); }
+};
 
-// 5) CSV backup (covers all months)
+/* ---------- CSV backup (all periods) ---------- */
 const csvCell = s => '"' + String(s).replace(/"/g,'""') + '"';
 $('exportBtn').onclick = async () => {
   try {
     const snap = await getDocs(query(txCol(), orderBy('t')));
-    const lines = ['date,amount,merchant,card'].concat(snap.docs.map(d => { const x = d.data(); return [new Date(x.t).toISOString(), x.amt.toFixed(2), csvCell(x.merchant), csvCell(x.card)].join(','); }));
+    const lines = ['date,amount,merchant,card,category'].concat(snap.docs.map(d => { const x = d.data(); return [new Date(x.t).toISOString(), x.amt.toFixed(2), csvCell(x.merchant), csvCell(x.card), csvCell(catOf(x))].join(','); }));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type:'text/csv'}));
     a.download = 'tap-tracker.csv'; a.click();
@@ -254,12 +523,13 @@ $('importFile').onchange = async e => {
   const lines = (await f.text()).split(/\r?\n/).slice(1).filter(Boolean);
   const recs = [];
   for (const l of lines) {
-    const m = l.match(/^([^,]*),([^,]*),"((?:[^"]|"")*)","((?:[^"]|"")*)"$/);
+    const m = l.match(/^([^,]*),([^,]*),"((?:[^"]|"")*)","((?:[^"]|"")*)"(?:,"((?:[^"]|"")*)")?$/);
     if (!m) continue;
     const a = parseAmt(m[2]), t = new Date(m[1]).getTime();
     if (isNaN(a) || a === 0 || isNaN(t)) continue;
     const merchant = m[3].replace(/""/g,'"'), card = m[4].replace(/""/g,'"');
-    recs.push({ id:keyId(t,a,merchant,card), data:{ t, amt:a, merchant, card } });
+    const c = m[5] ? m[5].replace(/""/g,'"') : '';
+    recs.push({ id:keyId(t,a,merchant,card), data:{ t, amt:a, merchant, card, cat: c && c !== autoCat(merchant) && CAT_COLOR[c] ? c : '' } });
   }
   try {
     for (let i = 0; i < recs.length; i += 400) {
@@ -267,7 +537,7 @@ $('importFile').onchange = async e => {
       recs.slice(i, i+400).forEach(r => b.set(doc(txCol(), r.id), r.data));
       await b.commit();
     }
-    flash(`Imported ${recs.length} transactions`);
+    flash(`Imported ${recs.length} purchases`);
   } catch (err) { flash(err.message, true); }
   e.target.value = '';
 };
