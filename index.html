@@ -78,8 +78,9 @@
 
   <div class="card">
     <h2>Settings &amp; backup</h2>
-    <input id="budget" type="number" inputmode="decimal" placeholder="Monthly budget (optional)">
-    <button class="btn" id="saveBudget">Save budget</button>
+    <input id="budget" type="number" inputmode="decimal" placeholder="Budget per period (optional)">
+    <input id="cycleDay" type="number" inputmode="numeric" min="1" max="28" placeholder="Period starts on day (1-28), e.g. 23">
+    <button class="btn" id="saveBudget">Save settings</button>
     <button class="btn alt" id="exportBtn">Export CSV</button>
     <button class="btn alt" id="importBtn">Import CSV</button>
     <input type="file" id="importFile" accept=".csv,text/csv" style="display:none">
@@ -127,7 +128,13 @@ try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); }
 catch { const m = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"); db = m.getFirestore(app); }
 
 let uid = null, tx = [], unsub = null;
-let view = new Date(); view.setDate(1); view.setHours(0,0,0,0);
+// A "month" runs from cycleDay of one month up to the day before cycleDay of the next (default: 23rd to 22nd).
+let cycleDay = 23;
+const lastDayOf = (y, m) => new Date(y, m + 1, 0).getDate();
+const cycleStart = (y, m) => new Date(y, m, Math.min(cycleDay, lastDayOf(y, m)));
+const anchorFor = d => { let m = d.getMonth(); if (d < cycleStart(d.getFullYear(), m)) m--; return new Date(d.getFullYear(), m, 1); };
+const periodRange = () => [cycleStart(view.getFullYear(), view.getMonth()), cycleStart(view.getFullYear(), view.getMonth() + 1)];
+let view = anchorFor(new Date());
 const txCol = () => collection(db, 'users', uid, 'tx');
 const userDoc = () => doc(db, 'users', uid);
 
@@ -149,13 +156,14 @@ async function flushPending(){
     try { const r = await addTx({amt:p.amt, merchant:p.merchant, card:p.card, t}); if (r) { ok++; last = r; } } catch (e) { flash('Could not save a tap: ' + e.message, true); return; }
   }
   try { localStorage.removeItem(PEND); } catch {}
-  if (last) { flash(ok === 1 ? `Logged ${fmt(last.amt)} at ${last.merchant}` : `Logged ${ok} taps`); view = new Date(last.t); view.setDate(1); view.setHours(0,0,0,0); subscribe(); }
+  if (last) { flash(ok === 1 ? `Logged ${fmt(last.amt)} at ${last.merchant}` : `Logged ${ok} taps`); view = anchorFor(new Date(last.t)); subscribe(); }
 }
 
 function subscribe(){
   if (unsub) unsub();
   if (!uid) return;
-  const start = view.getTime(), end = new Date(view.getFullYear(), view.getMonth()+1, 1).getTime();
+  const [ps, pe] = periodRange();
+  const start = ps.getTime(), end = pe.getTime();
   const q = query(txCol(), where('t','>=',start), where('t','<',end), orderBy('t','desc'));
   unsub = onSnapshot(q, snap => {
     tx = snap.docs.map(d => ({ id:d.id, ...d.data() }));
@@ -170,10 +178,12 @@ let budget = 0;
 
 function render(){
   const total = tx.reduce((s,x)=>s+x.amt,0);
-  $('monthLabel').textContent = view.toLocaleDateString('en-CA',{month:'long',year:'numeric'});
+  const [ps, pe] = periodRange();
+  const lastDay = new Date(pe.getFullYear(), pe.getMonth(), pe.getDate() - 1);
+  $('monthLabel').textContent = ps.toLocaleDateString('en-CA',{month:'short',day:'numeric'}) + ' – ' + lastDay.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});
   $('total').textContent = fmt(total);
-  const now = new Date(), isCur = now.getFullYear()===view.getFullYear() && now.getMonth()===view.getMonth();
-  const days = isCur ? now.getDate() : new Date(view.getFullYear(), view.getMonth()+1, 0).getDate();
+  const now = new Date(), isCur = now >= ps && now < pe;
+  const days = isCur ? Math.floor((now - ps) / 86400000) + 1 : Math.round((pe - ps) / 86400000);
   $('sub').textContent = `${tx.length} taps · avg ${fmt(days ? total/days : 0)}/day`;
   if (budget > 0) {
     $('barWrap').style.display = 'block';
@@ -183,7 +193,7 @@ function render(){
   } else { $('barWrap').style.display = 'none'; $('budgetNote').textContent = ''; }
   $('byCard').innerHTML = rows(group(tx,'card'));
   $('byMerchant').innerHTML = rows(group(tx,'merchant'), 8);
-  $('list').innerHTML = tx.map(x => `<div class="row"><span>${esc(x.merchant)}<small>${new Date(x.t).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${esc(x.card)}</small></span><span><span class="amt">${fmt(x.amt)}</span> <button class="del" data-id="${esc(x.id)}" aria-label="Delete">✕</button></span></div>`).join('') || '<div class="muted">No transactions this month</div>';
+  $('list').innerHTML = tx.map(x => `<div class="row"><span>${esc(x.merchant)}<small>${new Date(x.t).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · ${esc(x.card)}</small></span><span><span class="amt">${fmt(x.amt)}</span> <button class="del" data-id="${esc(x.id)}" aria-label="Delete">✕</button></span></div>`).join('') || '<div class="muted">No transactions in this period</div>';
 }
 
 // 3) Auth
@@ -191,7 +201,12 @@ onAuthStateChanged(auth, async user => {
   if (user) {
     uid = user.uid;
     $('auth').classList.add('hidden'); $('app').classList.remove('hidden');
-    try { const s = await getDoc(userDoc()); budget = s.exists() ? (s.data().budget || 0) : 0; $('budget').value = budget || ''; } catch {}
+    try {
+      const s = await getDoc(userDoc());
+      budget = s.exists() ? (s.data().budget || 0) : 0; $('budget').value = budget || '';
+      cycleDay = s.exists() && s.data().cycleDay ? s.data().cycleDay : 23; $('cycleDay').value = cycleDay;
+      view = anchorFor(new Date());
+    } catch {}
     subscribe();
     await flushPending();
   } else {
@@ -206,8 +221,8 @@ $('reset').onclick = () => { const e = $('email').value.trim(); if (!e) return f
 $('signOut').onclick = () => signOut(auth);
 
 // 4) UI actions
-$('prev').onclick = () => { view.setMonth(view.getMonth()-1); subscribe(); };
-$('next').onclick = () => { view.setMonth(view.getMonth()+1); subscribe(); };
+$('prev').onclick = () => { view = new Date(view.getFullYear(), view.getMonth()-1, 1); subscribe(); };
+$('next').onclick = () => { view = new Date(view.getFullYear(), view.getMonth()+1, 1); subscribe(); };
 $('list').onclick = e => { const id = e.target.dataset && e.target.dataset.id; if (id && confirm('Delete this transaction?')) deleteDoc(doc(txCol(), id)).catch(err => flash(err.message, true)); };
 $('addBtn').onclick = async () => {
   const r = await addTx({ amt:$('mAmt').value, merchant:$('mMerchant').value, card:$('mCard').value, t:Date.now(), id:doc(txCol()).id }).catch(e => { flash(e.message, true); return null; });
@@ -215,7 +230,11 @@ $('addBtn').onclick = async () => {
 };
 $('saveBudget').onclick = async () => {
   const b = parseFloat($('budget').value) || 0;
-  try { await setDoc(userDoc(), { budget: b }, { merge: true }); budget = b; render(); flash('Budget saved'); } catch (e) { flash(e.message, true); }
+  const c = Math.min(28, Math.max(1, parseInt($('cycleDay').value, 10) || 23));
+  try {
+    await setDoc(userDoc(), { budget: b, cycleDay: c }, { merge: true });
+    budget = b; cycleDay = c; $('cycleDay').value = c; view = anchorFor(new Date()); subscribe(); flash('Settings saved');
+  } catch (e) { flash(e.message, true); }
 };
 
 // 5) CSV backup (covers all months)
